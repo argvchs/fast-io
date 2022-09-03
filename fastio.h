@@ -3,16 +3,17 @@
 #include <concepts>
 #include <cstdio>
 #include <cstring>
+using namespace std;
 namespace fastio {
 const size_t SIZ = 1 << 24;
 template <typename T>
-concept integer_t = std::integral<T> || std::same_as<T, __int128_t> || std::same_as<T, __uint128_t>;
+concept integer_t = integral<T> || same_as<T, __int128_t> || same_as<T, __uint128_t>;
 template <typename T>
-concept unsigned_integer_t = std::unsigned_integral<T> || std::same_as<T, __uint128_t>;
+concept unsigned_integer_t = unsigned_integral<T> || same_as<T, __uint128_t>;
 template <typename T>
-concept string_t = std::same_as<T, char*> || std::same_as<T, const char*>;
+concept string_t = same_as<T, char*> || same_as<T, const char*>;
 template <typename T>
-concept float_t = std::floating_point<T>;
+concept float_t = floating_point<T>;
 enum symbol {
     endl,
     ends,
