@@ -16,7 +16,6 @@ g++ <file>.cpp -o <file> -std=c++20 -O3 -Ofast
 ```text
 fastio.cpp         # 测试文件
 fastio.h           # Fast-IO 库源文件
-fastio.noconcept.h # Fast-IO 库源文件（不使用 C++20 Concept）
 fastio.in          # 输入测试文件
 fastio.spd.in      # 速度测试文件
 README.md          # README
