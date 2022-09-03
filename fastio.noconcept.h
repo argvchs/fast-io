@@ -17,8 +17,7 @@ enum symbol {
     _setfill,
     reset
 };
-template <typename T>
-struct sympack {
+template <typename T> struct sympack {
     symbol s;
     T data;
     sympack(symbol _s, T _data) : s(_s), data(_data) {}
@@ -33,14 +32,13 @@ class rstream {
     bool iseof(char c) { return ~c ? 0 : flag = 1; }
     char _get() { return p1 == p2 && (p2 = (p1 = buf) + fread(buf, 1, SIZ, file), p1 == p2) ? EOF : *p1++; }
 
-   public:
+public:
     rstream() {}
     rstream(const char* dir) : file(fopen(dir, "r")) {}
     rstream(char* dir) : file(fopen(dir, "r")) {}
     char get() { return ispre ? (ispre = 0), prec : prec = _get(); }
     operator bool() { return !eof; }
-    template <typename T>
-    rstream& operator>>(T& x) {
+    template <typename T> rstream& operator>>(T& x) {
         x = 0;
         bool t(0);
         char ch;
@@ -88,17 +86,12 @@ class rstream {
         if (delim == '\n' && s[t - 1] == '\r') s[t - 1] = '\0';
         return *this;
     }
-    template <typename T>
-    rstream& read(T x) {
-        return operator>>(x);
-    }
-    template <typename T, typename... Args>
-    rstream& read(T x, Args... args) {
+    template <typename T> rstream& read(T x) { return operator>>(x); }
+    template <typename T, typename... Args> rstream& read(T x, Args... args) {
         operator>>(x);
         return read(args...);
     }
-    template <typename T>
-    const T read() {
+    template <typename T> const T read() {
         T x;
         operator>>(x);
         return x;
@@ -115,15 +108,14 @@ class wstream {
         while (cnt--) put(setfill);
     }
 
-   public:
+public:
     wstream() {}
     wstream(const char* dir) : file(fopen(dir, "w")) {}
     wstream(char* dir) : file(fopen(dir, "w")) {}
     ~wstream() { flush(); }
     wstream& flush() { return (fwrite(buf, p - buf, 1, file), p = buf), *this; }
     wstream& put(char ch) { return (p - buf >= SIZ && (flush(), NULL), *p++ = ch), *this; }
-    template <typename T>
-    wstream& operator<<(T x) {
+    template <typename T> wstream& operator<<(T x) {
         static char cbuf[45];
         size_t len(0);
         bool t(0);
@@ -155,10 +147,8 @@ class wstream {
     }
     wstream& operator<<(char* s) { return operator<<((const char*)s); }
     wstream& operator<<(bool f) {
-        if (boolalpha)
-            operator<<(f ? "true" : "false");
-        else
-            fill(setw - 1), put(f ? '1' : '0');
+        if (boolalpha) operator<<(f ? "true" : "false");
+        else fill(setw - 1), put(f ? '1' : '0');
         if (unitbuf) flush();
         return *this;
     }
@@ -175,18 +165,13 @@ class wstream {
         if (s == symbol::reset) boolalpha = showpos = unitbuf = 0, setfill = ' ';
         return *this;
     }
-    template <typename T>
-    wstream& operator<<(sympack<T> sp) {
+    template <typename T> wstream& operator<<(sympack<T> sp) {
         if (sp == symbol::_setw) setw = sp.data;
         if (sp == symbol::_setfill) setfill = sp.data;
         return *this;
     }
-    template <typename T>
-    wstream& write(T x) {
-        return operator<<(x);
-    }
-    template <typename T, typename... Args>
-    wstream& write(T x, Args... args) {
+    template <typename T> wstream& write(T x) { return operator<<(x); }
+    template <typename T, typename... Args> wstream& write(T x, Args... args) {
         operator<<(x);
         return write(args...);
     }
