@@ -1,10 +1,10 @@
-# FastIO
+# Fast-IO
 
 一个快读/快写库，支持基本类型与 `__int128_t` 读写，和 `cin/cout` 用法类似
 
 虽然相对于原版函数式 `fread` 快读会有点慢，但还是比 `getchar/putchar` 要快的
 
-编译不过？FastIO 用了 C++20 Concepts，用以下编译参数即可
+编译不过？Fast-IO 用了 C++20 Concepts，用以下编译参数即可
 最新版 MinGW 编译器在[这里](https://github.com/niXman/mingw-builds-binaries/releases)下载
 
 ```bash
@@ -15,8 +15,8 @@ g++ <file>.cpp -o <file> -std=c++20 -O3 -Ofast
 
 ```text
 fastio.cpp         # 测试文件
-fastio.h           # FastIO 库源文件
-fastio.noconcept.h # FastIO 库源文件（不使用 C++20 Concept）
+fastio.h           # Fast-IO 库源文件
+fastio.noconcept.h # Fast-IO 库源文件（不使用 C++20 Concept）
 fastio.in          # 输入测试文件
 fastio.spd.in      # 速度测试文件
 README.md          # README
@@ -26,35 +26,35 @@ README.md          # README
 
 `rs >> x;`
 
-读取 x
+读入 x
 
 `rs >> x >> y >> z;`
 
-读取 x, y, z
+读入 x, y, z
 
 `c = rs.get();`
 
-读取一个字符到 c
+读入一个字符到 c
 
 `rs.read(x, y, z);`
 
-读取 x, y, z
+读入 x, y, z
 
 `x = rs.read<int>();`
 
-读取一个 `int` 类型的数据到 x
+读入一个 `int` 类型的数据到 x
 
 `x = rs.read<T>();`
 
-读取一个 `T` 类型的数据到 x
+读入一个 `T` 类型的数据到 x
 
 `rs.getline(s);`
 
-读取一行到 s
+读入一行到 s
 
 `rs.getline(s, delim);`
 
-读取字符到 s，一直读到 delim 停止
+读入字符到 s，一直读到 delim 停止
 
 `rs.ignore();`
 
@@ -138,7 +138,7 @@ README.md          # README
 
 `ws << reset;`
 
-取消前面的所有设置（`boolalpha, showpos, unitbuf`）
+取消前面的所有设置（`boolalpha` `showpos` `unitbuf`）
 
 `rstream new_rs;`
 
