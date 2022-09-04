@@ -1,6 +1,6 @@
 # Fast-IO
 
-一个快读/快写库，支持基本类型与 `__int128_t` 读写，和 `cin/cout` 用法类似
+一个快读/快写库，支持基本类型与 `__int128_t` 读写，指针地址写入，和 `cin/cout` 用法类似
 
 虽然相对于原版函数式 `fread` 快读会有点慢，但还是比 `getchar/putchar` 要快的
 
@@ -63,11 +63,15 @@ README.md          # README
 
 忽略字符一直读到 delim 停止
 
+`rs >> skipws;`
+
+忽略前导空格
+
 `rs >> bin;` `rs >> oct;` `rs >> dec;` `rs >> hex;`
 
 按 2/8/10/16 进制读取整数
 
-`rs.setbase(base)`
+`rs.setbase(base);`
 
 按 base 进制读取整数，超出范围默认 10 进制 $(2 \le base \le 36)$
 
@@ -135,7 +139,15 @@ README.md          # README
 
 按大于 10 的进制写入整数时，字母小写（默认小写）
 
-`ws << setbase(base)`
+`ws << showbase;`
+
+写入 8/16 进制的整数时，在前面显示 `0`/`0x`
+
+`ws << noshowbase;`
+
+写入 8/16 进制的整数时，不在前面显示 `0`/`0x`
+
+`ws << setbase(base);`
 
 按 base 进制写入整数，超出范围默认 10 进制 $(2 \le base \le 36)$
 
@@ -194,19 +206,20 @@ concept integer_t = std::integral<T> || std::same_as<T, __int128_t> || std::same
 template <typename T>
 concept unsigned_integer_t = std::unsigned_integral<T> || std::same_as<T, __uint128_t>;
 template <typename T>
-concept string_t = std::same_as<T, char*> || std::same_as<T, const char*>;
-template <typename T>
 concept float_t = std::floating_point<T>;
 enum symbol {
     endl,
     ends,
     flush,
+    skipws,
     boolalpha,
     noboolalpha,
     showpos,
     noshowpos,
     showpoint,
     noshowpoint,
+    showbase,
+    noshowbase,
     bin,
     oct,
     dec,
@@ -245,7 +258,6 @@ class rstream {
 public:
     rstream() {}
     rstream(const char* dir) : file(fopen(dir, "r")) {}
-    rstream(char* dir) : file(fopen(dir, "r")) {}
     char get() { return ispre ? (ispre = 0), prec : prec = _get(); }
     operator bool() { return !eof; }
     template <integer_t T> rstream& operator>>(T& x) {
@@ -291,6 +303,7 @@ public:
         if (s == oct) base = 8;
         if (s == dec || s == reset) base = 10;
         if (s == hex) base = 16;
+        if (s == skipws) operator>>(*new char), ispre = 1;
         return *this;
     }
     template <class T> rstream& operator>>(const sympack<T> sp) {
@@ -324,7 +337,7 @@ public:
 };
 class wstream {
     char buf[SIZ], *p = buf, setfill = ' ';
-    bool boolalpha = 0, showpos = 0, showpoint = 0, ccase = 0, unitbuf = 0;
+    bool boolalpha = 0, showpos = 0, showpoint = 0, showbase = 0, ccase = 0, unitbuf = 0;
     int setw = 0, precision = 6, base = 10;
     long double eps = 1e6;
     FILE* file = stdout;
@@ -343,7 +356,6 @@ class wstream {
 public:
     wstream() {}
     wstream(const char* dir) : file(fopen(dir, "w")) {}
-    wstream(char* dir) : file(fopen(dir, "w")) {}
     ~wstream() { flush(); }
     wstream& flush() { return (fwrite(buf, p - buf, 1, file), p = buf), *this; }
     wstream& put(char ch) { return (p - buf >= SIZ && (flush(), NULL), *p++ = ch), *this; }
@@ -353,6 +365,9 @@ public:
         bool t(x < 0);
         if (!x) cbuf[len++] = '0';
         while (x) cbuf[len++] = tochr(t ? -(x % -base) : x % base), x /= base;
+        if (showbase)
+            if (base == 16) cbuf[len++] = ccase ? 'X' : 'x', cbuf[len++] = '0';
+            else if (base == 8) cbuf[len++] = '0';
         if (t || showpos) cbuf[len++] = t ? '-' : '+';
         fill(setw - len);
         while (len) put(cbuf[--len]);
@@ -383,7 +398,7 @@ public:
         fill(setw - 1), put(c);
         return unitbuf ? flush() : *this;
     }
-    template <string_t T> wstream& operator<<(T s) {
+    wstream& operator<<(const char* s) {
         int len(strlen(s));
         fill(setw - len);
         for (int i(0); i < len; ++i) put(s[i]);
@@ -393,6 +408,13 @@ public:
         if (boolalpha) operator<<(f ? "true" : "false");
         else fill(setw - 1), put(f ? '1' : '0');
         return unitbuf ? flush() : *this;
+    }
+    wstream& operator<<(const void* p) {
+        int b = base, t = showbase;
+        base = 16, showbase = 1;
+        operator<<((size_t)p);
+        base = b, showbase = t;
+        return *this;
     }
     wstream& operator<<(const symbol s) {
         if (s == endl) put('\n');
@@ -404,6 +426,8 @@ public:
         if (s == noshowpos) showpos = 0;
         if (s == symbol::showpoint) showpoint = 1;
         if (s == noshowpoint) showpoint = 0;
+        if (s == symbol::showbase) showbase = 1;
+        if (s == noshowbase) showbase = 0;
         if (s == symbol::unitbuf) unitbuf = 1;
         if (s == nounitbuf) unitbuf = 0;
         if (s == lowercase) ccase = 0;
@@ -413,15 +437,15 @@ public:
         if (s == dec) base = 10;
         if (s == hex) base = 16;
         if (s == reset) {
-            boolalpha = showpos = ccase = unitbuf = 0;
+            boolalpha = showpos = showpoint = showbase = ccase = unitbuf = 0;
             setfill = ' ', precision = 6, eps = 1e6, base = 10;
         }
         return *this;
     }
     template <typename T> wstream& operator<<(const sympack<T> sp) {
-        if (sp.type == _setw) setw = sp.data;
+        if (sp.type == _setw) setw = sp.data > 0 ? sp.data : 0;
         if (sp.type == _setfill) setfill = sp.data;
-        if (sp.type == _setprecision) eps = pow10(precision = sp.data);
+        if (sp.type == _setprecision) eps = pow10(precision = sp.data > 0 ? sp.data : 0);
         if (sp.type == _setbase) {
             base = sp.data;
             if (base < 2 || base > 36) base = 10;

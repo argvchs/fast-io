@@ -10,19 +10,20 @@ concept integer_t = std::integral<T> || std::same_as<T, __int128_t> || std::same
 template <typename T>
 concept unsigned_integer_t = std::unsigned_integral<T> || std::same_as<T, __uint128_t>;
 template <typename T>
-concept string_t = std::same_as<T, char*> || std::same_as<T, const char*>;
-template <typename T>
 concept float_t = std::floating_point<T>;
 enum symbol {
     endl,
     ends,
     flush,
+    skipws,
     boolalpha,
     noboolalpha,
     showpos,
     noshowpos,
     showpoint,
     noshowpoint,
+    showbase,
+    noshowbase,
     bin,
     oct,
     dec,
@@ -61,7 +62,6 @@ class rstream {
 public:
     rstream() {}
     rstream(const char* dir) : file(fopen(dir, "r")) {}
-    rstream(char* dir) : file(fopen(dir, "r")) {}
     char get() { return ispre ? (ispre = 0), prec : prec = _get(); }
     operator bool() { return !eof; }
     template <integer_t T> rstream& operator>>(T& x) {
@@ -107,6 +107,7 @@ public:
         if (s == oct) base = 8;
         if (s == dec || s == reset) base = 10;
         if (s == hex) base = 16;
+        if (s == skipws) operator>>(*new char), ispre = 1;
         return *this;
     }
     template <class T> rstream& operator>>(const sympack<T> sp) {
@@ -140,7 +141,7 @@ public:
 };
 class wstream {
     char buf[SIZ], *p = buf, setfill = ' ';
-    bool boolalpha = 0, showpos = 0, showpoint = 0, ccase = 0, unitbuf = 0;
+    bool boolalpha = 0, showpos = 0, showpoint = 0, showbase = 0, ccase = 0, unitbuf = 0;
     int setw = 0, precision = 6, base = 10;
     long double eps = 1e6;
     FILE* file = stdout;
@@ -159,7 +160,6 @@ class wstream {
 public:
     wstream() {}
     wstream(const char* dir) : file(fopen(dir, "w")) {}
-    wstream(char* dir) : file(fopen(dir, "w")) {}
     ~wstream() { flush(); }
     wstream& flush() { return (fwrite(buf, p - buf, 1, file), p = buf), *this; }
     wstream& put(char ch) { return (p - buf >= SIZ && (flush(), NULL), *p++ = ch), *this; }
@@ -169,6 +169,9 @@ public:
         bool t(x < 0);
         if (!x) cbuf[len++] = '0';
         while (x) cbuf[len++] = tochr(t ? -(x % -base) : x % base), x /= base;
+        if (showbase)
+            if (base == 16) cbuf[len++] = ccase ? 'X' : 'x', cbuf[len++] = '0';
+            else if (base == 8) cbuf[len++] = '0';
         if (t || showpos) cbuf[len++] = t ? '-' : '+';
         fill(setw - len);
         while (len) put(cbuf[--len]);
@@ -199,7 +202,7 @@ public:
         fill(setw - 1), put(c);
         return unitbuf ? flush() : *this;
     }
-    template <string_t T> wstream& operator<<(T s) {
+    wstream& operator<<(const char* s) {
         int len(strlen(s));
         fill(setw - len);
         for (int i(0); i < len; ++i) put(s[i]);
@@ -209,6 +212,13 @@ public:
         if (boolalpha) operator<<(f ? "true" : "false");
         else fill(setw - 1), put(f ? '1' : '0');
         return unitbuf ? flush() : *this;
+    }
+    wstream& operator<<(const void* p) {
+        int b = base, t = showbase;
+        base = 16, showbase = 1;
+        operator<<((size_t)p);
+        base = b, showbase = t;
+        return *this;
     }
     wstream& operator<<(const symbol s) {
         if (s == endl) put('\n');
@@ -220,6 +230,8 @@ public:
         if (s == noshowpos) showpos = 0;
         if (s == symbol::showpoint) showpoint = 1;
         if (s == noshowpoint) showpoint = 0;
+        if (s == symbol::showbase) showbase = 1;
+        if (s == noshowbase) showbase = 0;
         if (s == symbol::unitbuf) unitbuf = 1;
         if (s == nounitbuf) unitbuf = 0;
         if (s == lowercase) ccase = 0;
@@ -229,15 +241,15 @@ public:
         if (s == dec) base = 10;
         if (s == hex) base = 16;
         if (s == reset) {
-            boolalpha = showpos = ccase = unitbuf = 0;
+            boolalpha = showpos = showpoint = showbase = ccase = unitbuf = 0;
             setfill = ' ', precision = 6, eps = 1e6, base = 10;
         }
         return *this;
     }
     template <typename T> wstream& operator<<(const sympack<T> sp) {
-        if (sp.type == _setw) setw = sp.data;
+        if (sp.type == _setw) setw = sp.data > 0 ? sp.data : 0;
         if (sp.type == _setfill) setfill = sp.data;
-        if (sp.type == _setprecision) eps = pow10(precision = sp.data);
+        if (sp.type == _setprecision) eps = pow10(precision = sp.data > 0 ? sp.data : 0);
         if (sp.type == _setbase) {
             base = sp.data;
             if (base < 2 || base > 36) base = 10;
