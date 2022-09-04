@@ -75,6 +75,10 @@ README.md          # README
 
 按 base 进制读取整数，超出范围默认 10 进制 $(2 \le base \le 36)$
 
+`rs >> reset;`
+
+取消前面的所有设置
+
 `ws << x;`
 
 写入 x
@@ -173,7 +177,7 @@ README.md          # README
 
 `ws << reset;`
 
-取消前面的所有设置（`boolalpha` `showpos` `unitbuf`）
+取消前面的所有设置
 
 `rstream new_rs;`
 
