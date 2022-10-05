@@ -31,7 +31,7 @@ int main() {
     // while (rfs >> c) wfs << c << ends;
     // while (rfs >> s) wfs << s << endl;
     // while (rfs.getline(s)) wfs << s << endl;
-    // while (rfs.getline(s, ';')) wfs << s << endl, rfs.ignore();
+    // while (rfs.getline(s, ';')) wfs << s << ';' << endl, rfs.ignore();
     double k = (double)(clock() - start) / CLOCKS_PER_SEC;
     ws << k;
     return 0;
