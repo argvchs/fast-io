@@ -4,7 +4,6 @@
 #include <cstdio>
 #include <cstring>
 namespace fastio {
-const int SIZ = 1 << 24;
 template <typename T>
 concept integer_t = std::integral<T> || std::same_as<T, __int128_t> || std::same_as<T, __uint128_t>;
 template <typename T>
@@ -44,36 +43,36 @@ namespace symlib {
 }  // namespace symlib
 using namespace symlib;
 class rstream {
-    char buf[SIZ], *p1 = buf, *p2 = buf, prech;
-    bool eof = 0, eofx = 0, pre = 0;
+    static const int SIZ = 1 << 20;
     int base = 10;
+    bool eof = 0, eofx = 0, pre = 0;
+    char buf[SIZ], *p = buf, *q = buf, prech;
     FILE* file = stdin;
-    char _get() { return p1 == p2 && (p2 = (p1 = buf) + fread(buf, 1, SIZ, file), p1 == p2) ? EOF : *p1++; }
     bool isnum(char ch) {
         return isdigit(ch) && ch < 48 + base || isupper(ch) && ch < 55 + base || islower(ch) && ch < 87 + base;
     }
     bool iseof(char ch) { return !~ch; }
     int tonum(char ch) { return ch - (isdigit(ch) ? 48 : isupper(ch) ? 55 : 87); }
+    char fget() { return p == q && (q = (p = buf) + fread(buf, 1, SIZ, file), p == q) ? EOF : *p++; }
 
 public:
     rstream() {}
     rstream(const char* dir) : file(fopen(dir, "r")) {}
     char get() {
-        char res = pre ? (pre = 0), prech : prech = _get();
+        char res = pre ? (pre = 0), prech : prech = fget();
         return iseof(res) && (eof = 1), res;
     }
     operator bool() { return !eofx; }
     template <integer_t T> rstream& operator>>(T& x) {
-        bool t = x = 0;
+        bool t = x = 0, f = !unsigned_integer_t<T>;
         if (eof) return (eofx = 1), *this;
         char ch;
-        while (!iseof(ch = get()) && !isnum(ch))
-            if (ch == '-' && !unsigned_integer_t<T>) t = 1;
+        while (!iseof(ch = get()) && !isnum(ch)) t = ch == '-' && f;
         while (isnum(ch)) x = x * base + tonum(ch), ch = get();
         pre = 1, t && (x = -x);
         return *this;
     }
-    template <float_t T> rstream& operator>>(T& x) {
+    rstream& operator>>(float_t auto& x) {
         bool t = x = 0;
         if (eof) return (eofx = 1), *this;
         long double k = 1;
@@ -113,7 +112,7 @@ public:
         if (s == skipws) operator>>(*new char), pre = 1;
         return *this;
     }
-    template <class T> rstream& operator>>(const setbase sp) {
+    rstream& operator>>(const setbase sp) {
         base = sp.data, (base < 2 || base > 36) && (base = 10);
         return *this;
     }
@@ -132,19 +131,27 @@ public:
         s[t] = '\0', f && get();
         return *this;
     }
-    template <typename T> rstream& read(T x) { return operator>>(x); }
-    template <typename T, typename... Args> rstream& read(T x, Args... args) { return operator>>(x), read(args...); }
+    rstream& read(auto x) { return operator>>(x); }
+    rstream& read(auto x, auto... args) { return operator>>(x), read(args...); }
     template <typename T> const T read() {
         T x;
         return operator>>(x), x;
     }
 };
 class wstream {
-    char buf[SIZ], *p = buf, setfill = ' ';
-    bool boolalpha = 0, showpos = 0, showpoint = 0, showbase = 0, ccase = 0, unitbuf = 0;
+    static const int SIZ = 1 << 20;
     int setw = 0, precision = 6, base = 10;
+    bool boolalpha = 0, showpos = 0, showpoint = 0, showbase = 0, ccase = 0, unitbuf = 0;
+    char buf[SIZ], *p = buf, setfill = ' ';
     long double eps = 1e6;
     FILE* file = stdout;
+    long double pow10(int k) {
+        long double res = 1, x = 10;
+        for (; k; k >>= 1, x *= x)
+            if (k & 1) res *= x;
+        return res;
+    }
+    char tochr(int x) { return x + (x < 10 ? 48 : ccase ? 55 : 87); }
     void fill(int len) {
         setw = 0;
         if (len < 0) return;
@@ -155,31 +162,24 @@ class wstream {
         }
         memset(buf + use, setfill, len), p = buf + len + use;
     }
-    long double pow10(int k) {
-        long double res = 1, x = 10;
-        for (; k; k >>= 1, x *= x)
-            if (k & 1) res *= x;
-        return res;
-    }
-    char tochr(int x) { return x + (x < 10 ? 48 : ccase ? 55 : 87); }
 
 public:
     wstream() {}
     wstream(const char* dir) : file(fopen(dir, "w")) {}
     ~wstream() { flush(); }
-    wstream& flush() { return (fwrite(buf, p - buf, 1, file), p = buf), *this; }
-    wstream& put(char ch) { return (p - buf >= SIZ && (flush(), NULL), *p++ = ch), *this; }
+    wstream& flush() { return fwrite(buf, p - buf, 1, file), p = buf, *this; }
+    wstream& put(char ch) { return p - buf >= SIZ && (flush(), NULL), *p++ = ch, *this; }
     wstream& puts(const char* s, int len = -1) {
         if (len < 0) len = strlen(s);
-        int use = p - buf, siz = len;
+        int use = p - buf, _len = len;
         while (len + use >= SIZ) {
-            memcpy(buf + use, s + siz - len, SIZ - use);
+            memcpy(buf + use, s + _len - len, SIZ - use);
             p = buf + SIZ, flush(), len -= SIZ - use, use = 0;
         }
-        memcpy(buf + use, s + siz - len, len), p = buf + len + use;
+        memcpy(buf + use, s + _len - len, len), p = buf + len + use;
         return *this;
     }
-    template <integer_t T> wstream& operator<<(T x) {
+    wstream& operator<<(integer_t auto x) {
         static char cbuf[205];
         static char* const end = cbuf + 200;
         char* p = end;
@@ -213,6 +213,10 @@ public:
         if (t || showpos) ibuf[ilen++] = t ? '-' : '+';
         fill(setw - ilen - dlen);
         while (ilen) put(ibuf[--ilen]);
+        // ibuf[ilen++] = '\0', dbuf[dlen++] = '\0';
+        // strrev(ibuf), strrev(dbuf + pos);
+        // puts(ibuf, ilen);
+        // puts(dbuf);
         while (dlen >= pos) put(dbuf[--dlen]);
         return unitbuf ? flush() : *this;
     }
@@ -269,8 +273,8 @@ public:
         base = sp.data, (base < 2 || base > 36) && (base = 10);
         return *this;
     }
-    template <typename T> wstream& write(T x) { return operator<<(x); }
-    template <typename T, typename... Args> wstream& write(T x, Args... args) { return operator<<(x), write(args...); }
+    wstream& write(auto x) { return operator<<(x); }
+    wstream& write(auto x, auto... args) { return operator<<(x), write(args...); }
 };
 rstream rs;
 wstream ws;
