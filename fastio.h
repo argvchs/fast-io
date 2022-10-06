@@ -49,11 +49,11 @@ class rstream {
     int base = 10;
     FILE* file = stdin;
     char _get() { return p1 == p2 && (p2 = (p1 = buf) + fread(buf, 1, SIZ, file), p1 == p2) ? EOF : *p1++; }
-    bool isnum(char c) {
-        return isdigit(c) && c < 48 + base || isupper(c) && c < 55 + base || islower(c) && c < 87 + base;
+    bool isnum(char ch) {
+        return isdigit(ch) && ch < 48 + base || isupper(ch) && ch < 55 + base || islower(ch) && ch < 87 + base;
     }
-    bool iseof(char c) { return !~c; }
-    int tonum(char c) { return c - (isdigit(c) ? 48 : isupper(c) ? 55 : 87); }
+    bool iseof(char ch) { return !~ch; }
+    int tonum(char ch) { return ch - (isdigit(ch) ? 48 : isupper(ch) ? 55 : 87); }
 
 public:
     rstream() {}
@@ -85,19 +85,19 @@ public:
         pre = 1, t && (x = -x);
         return *this;
     }
-    rstream& operator>>(char& c) {
+    rstream& operator>>(char& ch) {
         if (eof) return (eofx = 1), *this;
-        while (!iseof(c = get()) && isspace(c))
+        while (!iseof(ch = get()) && isspace(ch))
             ;
         return *this;
     }
-    rstream& operator>>(char* s) {
+    template <size_t N> rstream& operator>>(char (&s)[N]) {
         if (eof) return (eofx = 1), *this;
         int t = 0;
         char ch;
         while (!iseof(ch = get()) && isspace(ch))
             ;
-        while (isgraph(ch)) s[t++] = ch, ch = get();
+        while (isgraph(ch)) t < N - 1 && (s[t++] = ch), ch = get();
         s[t] = '\0', pre = 1;
         return *this;
     }
@@ -124,13 +124,12 @@ public:
             ;
         return *this;
     }
-    rstream& getline(char* s, char delim = '\n') {
+    template <size_t N> rstream& getline(char (&s)[N], char delim = '\n') {
         if (eof) return (eofx = 1), *this;
-        int t = 0;
+        int t = 0, f = 0;
         char ch;
-        while (!iseof(ch = get()) && ch != delim) s[t++] = ch;
-        s[t] = '\0';
-        if (delim == '\n' && s[t - 1] == '\r') s[t - 1] = '\0';
+        while (!iseof(ch = get()) && ch != delim && !(f = delim == '\n' && ch == '\r')) t < N - 1 && (s[t++] = ch);
+        s[t] = '\0', f && get();
         return *this;
     }
     template <typename T> rstream& read(T x) { return operator>>(x); }
@@ -146,9 +145,15 @@ class wstream {
     int setw = 0, precision = 6, base = 10;
     long double eps = 1e6;
     FILE* file = stdout;
-    void fill(int cnt) {
+    void fill(int len) {
         setw = 0;
-        while (cnt-- > 0) put(setfill);
+        if (len < 0) return;
+        int use = p - buf;
+        while (len + use >= SIZ) {
+            memset(buf + use, setfill, SIZ - use);
+            p = buf + SIZ, flush(), len -= SIZ - use, use = 0;
+        }
+        memset(buf + use, setfill, len), p = buf + len + use;
     }
     long double pow10(int k) {
         long double res = 1, x = 10;
@@ -164,20 +169,32 @@ public:
     ~wstream() { flush(); }
     wstream& flush() { return (fwrite(buf, p - buf, 1, file), p = buf), *this; }
     wstream& put(char ch) { return (p - buf >= SIZ && (flush(), NULL), *p++ = ch), *this; }
+    wstream& puts(const char* s, int len = -1) {
+        if (len < 0) len = strlen(s);
+        int use = p - buf, siz = len;
+        while (len + use >= SIZ) {
+            memcpy(buf + use, s + siz - len, SIZ - use);
+            p = buf + SIZ, flush(), len -= SIZ - use, use = 0;
+        }
+        memcpy(buf + use, s + siz - len, len), p = buf + len + use;
+        return *this;
+    }
     template <integer_t T> wstream& operator<<(T x) {
-        static char cbuf[45];
-        int len = 0;
+        static char cbuf[205];
+        static char* const end = cbuf + 200;
+        char* p = end;
         bool t = x < 0;
-        if (!x) cbuf[len++] = '0';
-        while (x) cbuf[len++] = tochr(t ? -(x % -base) : x % base), x /= base;
+        if (!x) *p-- = '0';
+        while (x) *p-- = tochr(t ? -(x % -base) : x % base), x /= base;
         if (showbase)
-            if (base == 16) cbuf[len++] = ccase ? 'X' : 'x', cbuf[len++] = '0';
-            else if (base == 8) cbuf[len++] = '0';
-        if (t || showpos) cbuf[len++] = t ? '-' : '+';
-        fill(setw - len);
-        while (len) put(cbuf[--len]);
+            if (base == 16) *p-- = ccase ? 'X' : 'x', *p-- = '0';
+            else if (base == 8) *p-- = '0';
+        if (t || showpos) *p-- = t ? '-' : '+';
+        fill(setw - (end - p));
+        puts(p + 1, end - p);
         return unitbuf ? flush() : *this;
     }
+    // TODO: fix write of float_t
     template <float_t T> wstream& operator<<(T x) {
         static char ibuf[5005], dbuf[5005];
         int ilen = 0, dlen = 0, pos = 1, k = precision;
@@ -199,18 +216,13 @@ public:
         while (dlen >= pos) put(dbuf[--dlen]);
         return unitbuf ? flush() : *this;
     }
-    wstream& operator<<(char c) {
-        fill(setw - 1), put(c);
-        return unitbuf ? flush() : *this;
-    }
+    wstream& operator<<(char ch) { return fill(setw - 1), put(ch), unitbuf ? flush() : *this; }
     wstream& operator<<(const char* s) {
         int len = strlen(s);
-        fill(setw - len);
-        for (int i(0); i < len; ++i) put(s[i]);
-        return unitbuf ? flush() : *this;
+        return fill(setw - len), puts(s), unitbuf ? flush() : *this;
     }
     wstream& operator<<(bool f) {
-        if (boolalpha) operator<<(f ? "true" : "false");
+        if (boolalpha) puts(f ? "true" : "false");
         else fill(setw - 1), put(f ? '1' : '0');
         return unitbuf ? flush() : *this;
     }
