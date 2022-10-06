@@ -213,10 +213,6 @@ public:
         if (t || showpos) ibuf[ilen++] = t ? '-' : '+';
         fill(setw - ilen - dlen);
         while (ilen) put(ibuf[--ilen]);
-        // ibuf[ilen++] = '\0', dbuf[dlen++] = '\0';
-        // strrev(ibuf), strrev(dbuf + pos);
-        // puts(ibuf, ilen);
-        // puts(dbuf);
         while (dlen >= pos) put(dbuf[--dlen]);
         return unitbuf ? flush() : *this;
     }
