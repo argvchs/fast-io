@@ -10,38 +10,35 @@ template <typename T>
 concept unsigned_integer_t = std::unsigned_integral<T> || std::same_as<T, __uint128_t>;
 template <typename T>
 concept float_t = std::floating_point<T>;
-namespace symlib {
-    enum symbol {
-        endl,
-        ends,
-        flush,
-        skipws,
-        boolalpha,
-        noboolalpha,
-        showpos,
-        noshowpos,
-        showpoint,
-        noshowpoint,
-        showbase,
-        noshowbase,
-        bin,
-        oct,
-        dec,
-        hex,
-        uppercase,
-        lowercase,
-        unitbuf,
-        nounitbuf,
-        reset
-    };
-    // clang-format off
-    struct setw { int data; };
-    struct setfill { int data; };
-    struct setprecision { char data; };
-    struct setbase { int data; };
-    // clang-format on
-}  // namespace symlib
-using namespace symlib;
+enum symbol {
+    endl,
+    ends,
+    flush,
+    skipws,
+    boolalpha,
+    noboolalpha,
+    showpos,
+    noshowpos,
+    showpoint,
+    noshowpoint,
+    showbase,
+    noshowbase,
+    bin,
+    oct,
+    dec,
+    hex,
+    uppercase,
+    lowercase,
+    unitbuf,
+    nounitbuf,
+    reset
+};
+// clang-format off
+struct setw { int data; };
+struct setfill { int data; };
+struct setprecision { char data; };
+struct setbase { int data; };
+// clang-format on
 class rstream {
     static const int SIZ = 1 << 20;
     int base = 10;
@@ -236,16 +233,16 @@ public:
     wstream& operator<<(const symbol s) {
         if (s == endl) put('\n');
         if (s == ends) put(' ');
-        if (s == symlib::flush) flush();
-        if (s == symlib::boolalpha) boolalpha = 1;
+        if (s == fastio::flush) flush();
+        if (s == fastio::boolalpha) boolalpha = 1;
         if (s == noboolalpha) boolalpha = 0;
-        if (s == symlib::showpos) showpos = 1;
+        if (s == fastio::showpos) showpos = 1;
         if (s == noshowpos) showpos = 0;
-        if (s == symlib::showpoint) showpoint = 1;
+        if (s == fastio::showpoint) showpoint = 1;
         if (s == noshowpoint) showpoint = 0;
-        if (s == symlib::showbase) showbase = 1;
+        if (s == fastio::showbase) showbase = 1;
         if (s == noshowbase) showbase = 0;
-        if (s == symlib::unitbuf) unitbuf = 1;
+        if (s == fastio::unitbuf) unitbuf = 1;
         if (s == nounitbuf) unitbuf = 0;
         if (s == lowercase) ccase = 0;
         if (s == uppercase) ccase = 1;
@@ -259,13 +256,13 @@ public:
         }
         return *this;
     }
-    wstream& operator<<(symlib::setw sp) { return setw = sp.data > 0 ? sp.data : 0, *this; }
-    wstream& operator<<(const symlib::setfill sp) { return setfill = sp.data, *this; }
-    wstream& operator<<(const symlib::setprecision sp) {
+    wstream& operator<<(fastio::setw sp) { return setw = sp.data > 0 ? sp.data : 0, *this; }
+    wstream& operator<<(const fastio::setfill sp) { return setfill = sp.data, *this; }
+    wstream& operator<<(const fastio::setprecision sp) {
         eps = pow10(precision = sp.data > 0 ? sp.data : 0);
         return *this;
     }
-    wstream& operator<<(const symlib::setbase sp) {
+    wstream& operator<<(const fastio::setbase sp) {
         base = sp.data, (base < 2 || base > 36) && (base = 10);
         return *this;
     }
