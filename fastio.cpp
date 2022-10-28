@@ -1,9 +1,9 @@
-#include "fastio.h"
 #include <cstdio>
 #include <ctime>
+#include "fastio.h"
 using namespace fastio;
-rstream rfs("fastio.in");
-wstream wfs("fastio.out");
+rfstream rfs("fastio.in");
+wfstream wfs("fastio.out");
 int main() {
     clock_t start = clock();
     rfs >> hex;
@@ -13,7 +13,7 @@ int main() {
     bool f;
     char s[105], c;
     double d;
-    (rfs.ignore() >> skipws).getline(s);
+    (rfs.ignore() >> skipws).getline(s, 100);
     rfs >> c >> f;
     (rfs >> d).ignore();
     wfs.write(n, hex, showbase, uppercase, '(', n, ')', dec, endl);
@@ -25,13 +25,13 @@ int main() {
     wfs << "const char*" << endl;
     wfs << reset << 12345678901234567890ull << endl;
     wfs << showpos << setw(20) << setfill('0');
-    // wfs << showpoint << setprecision(6);
+    wfs << showpoint << setprecision(6);
     while (rfs >> n) wfs << n << ends;
     // while (rfs >> d) wfs << d << ends;
     // while (rfs >> c) wfs << c << ends;
     // while (rfs >> s) wfs << s << endl;
-    // while (rfs.getline(s)) wfs << s << endl;
-    // while (rfs.getline(s, ';')) wfs << s << ';' << endl, rfs.ignore();
+    // while (rfs.getline(s, 100)) wfs << s << endl;
+    // while (rfs.getline(s, 100, ';')) wfs << s << ';' << endl, rfs.ignore();
     double k = (double)(clock() - start) / CLOCKS_PER_SEC;
     ws << k;
     return 0;
