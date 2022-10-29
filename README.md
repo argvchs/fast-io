@@ -23,6 +23,14 @@ README.md          # README
 
 ## 使用
 
+-   `using namespace fastio;`
+
+    使用 Fast-IO
+
+-   `using namespace fastio::syms;`
+
+    使用输入输出符号，如 `endl`
+
 -   `rs >> x;`
 
     读取 x
@@ -55,25 +63,45 @@ README.md          # README
 
     读取一行到 s，最多读取 n 个字符
 
--   `rs.getline(s, delim);`
+-   `rs.getline(s, n, c);`
 
-    读取字符到 s，最多读取 n 个字符，一直读到 delim 停止
+    读取字符到 s，最多读取 n 个字符，一直读到 c 停止
 
 -   `rs.ignore();`
 
     忽略一行
 
--   `rs.ignore(delim);`
+-   `rs.ignore(n);`
 
-    忽略字符一直读到 delim 停止
+    忽略一行，最多忽略 n 个字符（若 n 为 $2147483647$ 则等于 `rs.ignore();`）
+
+-   `rs.ignore(n, c);`
+
+    忽略字符到 c 停止，最多忽略 n 个字符
 
 -   `rs >> skipws;`
 
     忽略前导空格
 
+-   `rs.eof;`
+
+    rs 是否读到末尾
+
+-   `rs.fail;`
+
+    rs 是否发生错误（读到末尾后，继续读取）
+
+-   `!rs;` `(bool)rs;`
+
+    分别等于 `rs.fail;` `!rs.fail;`
+
+-   `while (rs >> ...);`
+
+    一直读取直到末尾
+
 -   `rs >> bin;` `rs >> oct;` `rs >> dec;` `rs >> hex;`
 
-    按 2/8/10/16 进制读取整数
+    按 2 8 10 16 进制读取整数
 
 -   `rs.setbase(base);`
 
@@ -185,11 +213,11 @@ README.md          # README
 
 -   `rstream rs;`
 
-    创建读流（已经有默认流 rs 了，会出错）
+    创建读流（已经有默认流 rs 了，会发生错误）
 
 -   `wstream ws;`
 
-    创建写流（已经有默认流 ws 了，会出错）
+    创建写流（已经有默认流 ws 了，会发生错误）
 
 -   `rfstream rfs(dir);`
 
@@ -215,7 +243,53 @@ README.md          # README
 
     移动字符串流的读取指针到开始
 
-## Code:
+## 接口
+
+-   重载运算符
+
+    **注意要用 `fastio::interface::rstream` `fastio::interface::wstream` 来重载**
+
+    以下是一些示例程序
+
+    ```cpp
+    // overload std::string read/write
+    auto &operator<<(fastio::interface::rstream &rs, string &s) {
+        static char buf[1005];
+        return rs >> buf, s = buf, rs;
+    }
+    auto &operator<<(fastio::interface::wstream &ws, const string s) { return ws << s.c_str(); }
+
+    // overload (,) (;) (.) (?) (!) write
+    enum punctuation { comma, simicolon, fullstop, question, exclamatory };
+    auto &operator<<(fastio::interface::wstream& ws, const punctuation s) {
+        if (s == comma) ws.put(',');
+        else if (s == simicolon) ws.put(';');
+        else if (s == fullstop) ws.put('.');
+        else if (s == question) ws.put('?');
+        else if (s == exclamatory) ws.put('!');
+        return rs;
+    }
+
+    // overload std::vector<T> read/write
+    template<class T> auto& operator<<(fastio::interface::rstream& rs, const vector<T> v) {
+        v.clear();
+        size_t n = rs.read<size_t>();
+        for (T x; n--) {
+            rs >> x;
+            v.push_back(x);
+        }
+        return ws;
+    }
+    template<class T> auto& operator<<(fastio::interface::wstream& ws, const vector<T> v) {
+        for (auto p = v.begin(); p != v.end(); ++p) {
+            ws << *p;
+            if (p != v.end() - 1) ws.put(',');
+        }
+        return ws;
+    }
+    ```
+
+## Code
 
 ```cpp
 #include <cctype>
@@ -225,7 +299,7 @@ README.md          # README
 #include <cstring>
 static const int SIZ = 1 << 20;
 namespace fastio {
-namespace symlib {
+namespace syms {
     enum symbol {
         endl,
         ends,
@@ -255,9 +329,9 @@ namespace symlib {
     struct setprecision { char data; };
     struct setbase { int data; };
     // clang-format on
-}  // namespace symlib
-using namespace symlib;
+}  // namespace syms
 namespace interface {
+    using namespace syms;
     template <typename T>
     concept integer_t = std::integral<T> || std::same_as<T, __int128_t> || std::same_as<T, __uint128_t>;
     template <typename T>
@@ -266,6 +340,8 @@ namespace interface {
     concept float_t = std::floating_point<T>;
     class rstream {
         int base = 10;
+        bool pre;
+        char prech;
         bool isnum(char ch) {
             return isdigit(ch) && ch < 48 + base || isupper(ch) && ch < 55 + base || islower(ch) && ch < 87 + base;
         }
@@ -273,22 +349,21 @@ namespace interface {
         int tonum(char ch) { return ch - (isdigit(ch) ? 48 : isupper(ch) ? 55 : 87); }
 
     protected:
-        bool eof = 0, eofx = 0, pre;
-        char prech;
         virtual char get(int) = 0;
 
     public:
+        bool eof = 0, fail = 0;
         rstream() = default;
         char get() {
-            char res = pre ? (pre = 0), prech : prech = get(NULL);
+            char res = pre ? (pre = 0), prech : prech = get(0);
             return iseof(res) && (eof = 1), res;
         }
-        operator bool() { return !eofx; }
+        operator bool() { return !fail; }
         template <integer_t T> rstream& operator>>(T& x) {
             bool t = x = 0, f = signed_integer_t<T>;
             char ch;
             while (!iseof(ch = get()) && !isnum(ch)) t = ch == '-' && f;
-            if (eof) return eofx = 1, *this;
+            if (eof) return fail = 1, *this;
             while (isnum(ch)) x = x * base + tonum(ch), ch = get();
             pre = 1, t && (x = -x);
             return *this;
@@ -298,7 +373,7 @@ namespace interface {
             long double k = 1;
             char ch;
             while (!iseof(ch = get()) && !isdigit(ch)) t = ch == '-';
-            if (eof) return eofx = 1, *this;
+            if (eof) return fail = 1, *this;
             while (isdigit(ch)) x = x * 10.0 + ch - 48, ch = get();
             if (ch == '.')
                 while (isdigit(ch = get())) x += (double)(ch - 48) / (k *= 10);
@@ -308,7 +383,7 @@ namespace interface {
         rstream& operator>>(char& ch) {
             while (!iseof(ch = get()) && isspace(ch))
                 ;
-            if (eof) eofx = 1, ch = 0;
+            if (eof) fail = 1, ch = 0;
             return *this;
         }
         template <size_t N> rstream& operator>>(char (&s)[N]) {
@@ -316,7 +391,7 @@ namespace interface {
             char ch;
             while (!iseof(ch = get()) && isspace(ch))
                 ;
-            if (eof) return eofx = 1, *this;
+            if (eof) return fail = 1, *this;
             while (isgraph(ch)) t < N - 1 && (s[t++] = ch), ch = get();
             s[t] = '\0', pre = 1;
             return *this;
@@ -327,28 +402,29 @@ namespace interface {
         }
         rstream& operator>>(const symbol s) {
             if (s == bin) base = 2;
-            if (s == oct) base = 8;
-            if (s == dec || s == reset) base = 10;
-            if (s == hex) base = 16;
-            if (s == skipws) operator>>(*new char), pre = 1;
+            else if (s == oct) base = 8;
+            else if (s == dec || s == reset) base = 10;
+            else if (s == hex) base = 16;
+            else if (s == skipws) operator>>(*new char), pre = 1;
             return *this;
         }
         rstream& operator>>(const setbase sp) {
             base = sp.data, (base < 2 || base > 36) && (base = 10);
             return *this;
         }
-        rstream& ignore(char delim = '\n') {
+        rstream& ignore(size_t N = INT_MAX, char delim = '\n') {
             char ch;
-            while (!iseof(ch = get()) && ch != delim)
-                ;
-            if (eof) return eofx = 1, *this;
+            if (N == INT_MAX)
+                while (N-- && !iseof(ch = get()) && ch != delim)
+                    ;
+            else if (eof) return fail = 1, *this;
             return *this;
         }
         rstream& getline(char* s, size_t N, char delim = '\n') {
             int t = 0, f = 0;
             char ch;
-            while (!iseof(ch = get()) && ch != delim) t < N - 1 && (s[t++] = ch);
-            if (!t) return eofx = 1, *this;
+            while (N-- && !iseof(ch = get()) && ch != delim) s[t++] = ch;
+            if (!t) return fail = 1, *this;
             if (delim == '\n' && s[t - 1] == '\r') --t;
             s[t] = '\0';
             return *this;
@@ -382,8 +458,8 @@ namespace interface {
 
     public:
         wstream() = default;
-        wstream& flush() { return flush(NULL), *this; }
-        wstream& put(char ch) { return put(ch, NULL), *this; }
+        wstream& flush() { return flush(0), *this; }
+        wstream& put(char ch) { return put(ch, 0), *this; }
         wstream& operator<<(integer_t auto x) {
             static char buf[205], *end = buf + 200;
             char* p = end;
@@ -434,37 +510,37 @@ namespace interface {
         }
         wstream& operator<<(const symbol s) {
             if (s == endl) put('\n');
-            if (s == ends) put(' ');
-            if (s == symlib::flush) flush();
-            if (s == symlib::boolalpha) boolalpha = 1;
-            if (s == noboolalpha) boolalpha = 0;
-            if (s == symlib::showpos) showpos = 1;
-            if (s == noshowpos) showpos = 0;
-            if (s == symlib::showpoint) showpoint = 1;
-            if (s == noshowpoint) showpoint = 0;
-            if (s == symlib::showbase) showbase = 1;
-            if (s == noshowbase) showbase = 0;
-            if (s == symlib::unitbuf) unitbuf = 1;
-            if (s == nounitbuf) unitbuf = 0;
-            if (s == lowercase) kase = 0;
-            if (s == uppercase) kase = 1;
-            if (s == bin) base = 2;
-            if (s == oct) base = 8;
-            if (s == dec) base = 10;
-            if (s == hex) base = 16;
-            if (s == reset) {
+            else if (s == ends) put(' ');
+            else if (s == syms::flush) flush();
+            else if (s == syms::boolalpha) boolalpha = 1;
+            else if (s == noboolalpha) boolalpha = 0;
+            else if (s == syms::showpos) showpos = 1;
+            else if (s == noshowpos) showpos = 0;
+            else if (s == syms::showpoint) showpoint = 1;
+            else if (s == noshowpoint) showpoint = 0;
+            else if (s == syms::showbase) showbase = 1;
+            else if (s == noshowbase) showbase = 0;
+            else if (s == syms::unitbuf) unitbuf = 1;
+            else if (s == nounitbuf) unitbuf = 0;
+            else if (s == lowercase) kase = 0;
+            else if (s == uppercase) kase = 1;
+            else if (s == bin) base = 2;
+            else if (s == oct) base = 8;
+            else if (s == dec) base = 10;
+            else if (s == hex) base = 16;
+            else if (s == reset) {
                 boolalpha = showpos = showpoint = showbase = kase = unitbuf = 0;
                 setfill = ' ', precision = 6, eps = 1e-6, EPS = 1e6, base = 10;
             }
             return *this;
         }
-        wstream& operator<<(symlib::setw sp) { return setw = sp.data > 0 ? sp.data : 0, *this; }
-        wstream& operator<<(const symlib::setfill sp) { return setfill = sp.data, *this; }
-        wstream& operator<<(const symlib::setprecision sp) {
+        wstream& operator<<(syms::setw sp) { return setw = sp.data > 0 ? sp.data : 0, *this; }
+        wstream& operator<<(const syms::setfill sp) { return setfill = sp.data, *this; }
+        wstream& operator<<(const syms::setprecision sp) {
             precision = sp.data > 0 ? sp.data : 0;
             return update(), *this;
         }
-        wstream& operator<<(const symlib::setbase sp) {
+        wstream& operator<<(const syms::setbase sp) {
             base = sp.data, (base < 2 || base > 36) && (base = 10);
             return *this;
         }
@@ -497,17 +573,17 @@ class wstream : public interface::wstream {
         int use = p - buf;
         while (len + use >= SIZ) {
             memset(buf + use, ch, SIZ - use);
-            p = buf + SIZ, flush(NULL), len -= SIZ - use, use = 0;
+            p = buf + SIZ, flush(0), len -= SIZ - use, use = 0;
         }
         memset(buf + use, ch, len), p = buf + len + use;
     }
-    void put(char ch, int) { p - buf >= SIZ && (flush(NULL), NULL), *p++ = ch; }
+    void put(char ch, int) { p - buf >= SIZ && (flush(0), 0), *p++ = ch; }
     void puts(const char* s, int len = -1) {
         if (len < 0) len = strlen(s);
         int use = p - buf, _len = len;
         while (len + use >= SIZ) {
             memcpy(buf + use, s + _len - len, SIZ - use);
-            p = buf + SIZ, flush(NULL), len -= SIZ - use, use = 0;
+            p = buf + SIZ, flush(0), len -= SIZ - use, use = 0;
         }
         memcpy(buf + use, s + _len - len, len), p = buf + len + use;
     }
@@ -516,7 +592,7 @@ protected:
     FILE* file = stdout;
 
 public:
-    ~wstream() { flush(NULL), fclose(file); }
+    ~wstream() { flush(0), fclose(file); }
 };
 class wfstream : public wstream {
 public:
@@ -534,7 +610,7 @@ class sstream : public interface::rstream, public interface::wstream {
         delete[] l, r = (l = t) + (len << 1);
     }
     void clear() { delete[] l, r = (p = q = l = new char[2]{}) + 1; }
-    void uneof() { eof = eofx = 0; }
+    void uneof() { eof = fail = 0; }
     char get(int) { return q == p ? EOF : *q++; }
     void flush(int) {}
     void fill(char ch, int len) {
@@ -562,6 +638,7 @@ public:
         delete[] l, r = p = (q = l = new char[len]) + len;
         memcpy(l, s, len), uneof();
     }
+    sstream& seek() { return q = l, *this; }
 };
 rstream rs;
 wstream ws;

@@ -1,7 +1,8 @@
+#include "fastio.h"
 #include <cstdio>
 #include <ctime>
-#include "fastio.h"
 using namespace fastio;
+using namespace syms;
 rfstream rfs("fastio.in");
 wfstream wfs("fastio.out");
 int main() {
