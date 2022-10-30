@@ -79,9 +79,9 @@ README.md          # README
 
     忽略字符到 c 停止，最多忽略 n 个字符
 
--   `rs >> skipws;`
+-   `rs.seek();`
 
-    忽略前导空格
+    移动读取指针到开始
 
 -   `rs.eof;`
 
@@ -102,6 +102,10 @@ README.md          # README
 -   `rs >> bin;` `rs >> oct;` `rs >> dec;` `rs >> hex;`
 
     按 2 8 10 16 进制读取整数
+
+-   `rs >> skipws;`
+
+    忽略前导空格
 
 -   `rs.setbase(base);`
 
@@ -239,10 +243,6 @@ README.md          # README
 
     将字符串流的数据替换为 s 并移动读取指针到开始
 
--   `ss.seek();`
-
-    移动字符串流的读取指针到开始
-
 ## 接口
 
 -   重载运算符
@@ -297,7 +297,6 @@ README.md          # README
 #include <concepts>
 #include <cstdio>
 #include <cstring>
-static const int SIZ = 1 << 20;
 namespace fastio {
 namespace syms {
     enum symbol {
@@ -349,13 +348,14 @@ namespace interface {
         int tonum(char ch) { return ch - (isdigit(ch) ? 48 : isupper(ch) ? 55 : 87); }
 
     protected:
-        virtual char get(int) = 0;
+        virtual char vget() = 0;
+        virtual void vseek() = 0;
 
     public:
         bool eof = 0, fail = 0;
         rstream() = default;
         char get() {
-            char res = pre ? (pre = 0), prech : prech = get(0);
+            char res = pre ? (pre = 0), prech : prech = vget();
             return iseof(res) && (eof = 1), res;
         }
         operator bool() { return !fail; }
@@ -398,14 +398,14 @@ namespace interface {
         }
         rstream& operator>>(bool& f) {
             long long x;
-            return operator>>(x), f = x, *this;
+            return *this >> x, f = x, *this;
         }
         rstream& operator>>(const symbol s) {
             if (s == bin) base = 2;
             else if (s == oct) base = 8;
             else if (s == dec || s == reset) base = 10;
             else if (s == hex) base = 16;
-            else if (s == skipws) operator>>(*new char), pre = 1;
+            else if (s == skipws) *this >> *new char, pre = 1;
             return *this;
         }
         rstream& operator>>(const setbase sp) {
@@ -429,11 +429,11 @@ namespace interface {
             s[t] = '\0';
             return *this;
         }
-        rstream& read(auto x) { return operator>>(x); }
-        rstream& read(auto x, auto... args) { return operator>>(x), read(args...); }
+        rstream& seek() { return vseek(), *this; }
+        rstream& read(auto... args) { return (*this >> ... >> args); }
         template <typename T> const T read() {
             T x;
-            return operator>>(x), x;
+            return *this >> x, x;
         }
     };
     class wstream {
@@ -448,18 +448,18 @@ namespace interface {
                 if (k & 1) eps *= x, EPS *= y;
         }
         char tochr(int x) { return x + (x < 10 ? 48 : kase ? 55 : 87); }
-        void fill(int len) { setw = 0, fill(setfill, len); }
+        void fill(int len) { setw = 0, vfill(setfill, len); }
 
     protected:
-        virtual void flush(int) = 0;
-        virtual void fill(char, int) = 0;
-        virtual void put(char, int) = 0;
-        virtual void puts(const char*, int = -1) = 0;
+        virtual void vflush() = 0;
+        virtual void vfill(char, int) = 0;
+        virtual void vput(char) = 0;
+        virtual void vputs(const char*, int = -1) = 0;
 
     public:
         wstream() = default;
-        wstream& flush() { return flush(0), *this; }
-        wstream& put(char ch) { return put(ch, 0), *this; }
+        wstream& flush() { return vflush(), *this; }
+        wstream& put(char ch) { return vput(ch), *this; }
         wstream& operator<<(integer_t auto x) {
             static char buf[205], *end = buf + 200;
             char* p = end;
@@ -471,7 +471,7 @@ namespace interface {
                 else if (base == 8) *p-- = 48;
             if (t || showpos) *p-- = t ? '-' : '+';
             fill(setw - (end - p));
-            puts(p + 1, end - p);
+            vputs(p + 1, end - p);
             return unitbuf ? flush() : *this;
         }
         template <float_t T> wstream& operator<<(T x) {
@@ -488,23 +488,23 @@ namespace interface {
             while (*d == 48 && d != q && !showpoint) --d;
             if (t || showpos) *p-- = t ? '-' : '+';
             fill(setw - (end - p) - (d - q));
-            puts(p + 1, end - p), puts(q + 1, d - q);
+            vputs(p + 1, end - p), vputs(q + 1, d - q);
             return unitbuf ? flush() : *this;
         }
         wstream& operator<<(char ch) { return fill(setw - 1), put(ch), unitbuf ? flush() : *this; }
         wstream& operator<<(const char* s) {
             int len = strlen(s);
-            return fill(setw - len), puts(s), unitbuf ? flush() : *this;
+            return fill(setw - len), vputs(s), unitbuf ? flush() : *this;
         }
         wstream& operator<<(bool f) {
-            if (boolalpha) puts(f ? "true" : "false");
+            if (boolalpha) vputs(f ? "true" : "false");
             else fill(setw - 1), put(f ? '1' : 48);
             return unitbuf ? flush() : *this;
         }
         wstream& operator<<(const void* p) {
             int b = base, t = showbase;
             base = 16, showbase = 1;
-            operator<<((size_t)p);
+            *this << (size_t)p;
             base = b, showbase = t;
             return *this;
         }
@@ -544,14 +544,18 @@ namespace interface {
             base = sp.data, (base < 2 || base > 36) && (base = 10);
             return *this;
         }
-        wstream& write(auto x) { return operator<<(x); }
-        wstream& write(auto x, auto... args) { return operator<<(x), write(args...); }
+        wstream& write(auto... args) { return (*this << ... << args); }
     };
 }  // namespace interface
 class rstream : public interface::rstream {
     static const int SIZ = 1 << 20;
     char buf[SIZ], *p = buf, *q = buf;
-    char get(int) { return p == q && (q = (p = buf) + fread(buf, 1, SIZ, file), p == q) ? EOF : *p++; }
+    char vget() {
+        if (p != q) return *p++;
+        if (feof(file) || ferror(file)) return clearerr(file), EOF;
+        return p == q && (q = (p = buf) + fread(buf, 1, SIZ, file), p == q) ? EOF : *p++;
+    }
+    void vseek() { fseek(file, 0, 0); }
 
 protected:
     FILE* file = stdin;
@@ -567,23 +571,23 @@ public:
 class wstream : public interface::wstream {
     static const int SIZ = 1 << 20;
     char buf[SIZ], *p = buf;
-    void flush(int) { fwrite(buf, p - buf, 1, file), p = buf; }
-    void fill(char ch, int len) {
+    void vflush() { fwrite(buf, p - buf, 1, file), p = buf; }
+    void vfill(char ch, int len) {
         if (len < 0) return;
         int use = p - buf;
         while (len + use >= SIZ) {
             memset(buf + use, ch, SIZ - use);
-            p = buf + SIZ, flush(0), len -= SIZ - use, use = 0;
+            p = buf + SIZ, vflush(), len -= SIZ - use, use = 0;
         }
         memset(buf + use, ch, len), p = buf + len + use;
     }
-    void put(char ch, int) { p - buf >= SIZ && (flush(0), 0), *p++ = ch; }
-    void puts(const char* s, int len = -1) {
+    void vput(char ch) { p - buf >= SIZ && (vflush(), 0), *p++ = ch; }
+    void vputs(const char* s, int len = -1) {
         if (len < 0) len = strlen(s);
         int use = p - buf, _len = len;
         while (len + use >= SIZ) {
             memcpy(buf + use, s + _len - len, SIZ - use);
-            p = buf + SIZ, flush(0), len -= SIZ - use, use = 0;
+            p = buf + SIZ, vflush(), len -= SIZ - use, use = 0;
         }
         memcpy(buf + use, s + _len - len, len), p = buf + len + use;
     }
@@ -592,7 +596,7 @@ protected:
     FILE* file = stdout;
 
 public:
-    ~wstream() { flush(0), fclose(file); }
+    ~wstream() { vflush(), fclose(file); }
 };
 class wfstream : public wstream {
 public:
@@ -611,18 +615,19 @@ class sstream : public interface::rstream, public interface::wstream {
     }
     void clear() { delete[] l, r = (p = q = l = new char[2]{}) + 1; }
     void uneof() { eof = fail = 0; }
-    char get(int) { return q == p ? EOF : *q++; }
-    void flush(int) {}
-    void fill(char ch, int len) {
+    char vget() { return q == p ? EOF : *q++; }
+    void vseek() { q = l; }
+    void vflush() {}
+    void vfill(char ch, int len) {
         if (len < 0) return;
         while (r - p < len) reserve();
         memset(p, ch, len), p += len, uneof();
     }
-    void put(char ch, int) {
+    void vput(char ch) {
         if (p == r) reserve();
         *p++ = ch, uneof();
     }
-    void puts(const char* s, int len = -1) {
+    void vputs(const char* s, int len = -1) {
         if (len < 0) len = strlen(s);
         while (r - p < len) reserve();
         memcpy(p, s, len), p += len, uneof();
@@ -638,7 +643,6 @@ public:
         delete[] l, r = p = (q = l = new char[len]) + len;
         memcpy(l, s, len), uneof();
     }
-    sstream& seek() { return q = l, *this; }
 };
 rstream rs;
 wstream ws;
