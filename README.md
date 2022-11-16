@@ -274,7 +274,7 @@ README.md          # README
     template<class T> auto& operator<<(fastio::interface::rstream& rs, const vector<T> v) {
         v.clear();
         size_t n = rs.read<size_t>();
-        for (T x; n--) {
+        for (T x; n--;) {
             rs >> x;
             v.push_back(x);
         }
