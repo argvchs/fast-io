@@ -56,11 +56,11 @@ namespace interface {
         bool iseof(char ch) { return !~ch; }
         int tonum(char ch) { return ch - (isdigit(ch) ? '0' : isupper(ch) ? 'A' - 10 : 'a' - 10); }
 
-    protected:
+      protected:
         virtual char vget() = 0;
         virtual void vseek() = 0;
 
-    public:
+      public:
         bool eof = 0, fail = 0;
         rstream() = default;
         char get() {
@@ -158,13 +158,13 @@ namespace interface {
         char tochr(int x) { return x + (x < 10 ? '0' : kase ? 'A' - 10 : 'a' - 10); }
         void fill(int N) { setw = 0, vfill(setfill, N); }
 
-    protected:
+      protected:
         virtual void vflush() = 0;
         virtual void vfill(char, int) = 0;
         virtual void vput(char) = 0;
         virtual void vputs(const char*, int = -1) = 0;
 
-    public:
+      public:
         wstream() = default;
         wstream& flush() { return vflush(), *this; }
         wstream& put(char ch) { return vput(ch), *this; }
@@ -263,14 +263,14 @@ class rstream : public interface::rstream {
     }
     void vseek() { fseek(file, 0, 0), p = q = buf; }
 
-protected:
+  protected:
     FILE* file = stdin;
 
-public:
+  public:
     ~rstream() { fclose(file); }
 };
 class rfstream : public rstream {
-public:
+  public:
     rfstream(FILE* f) { file = f; }
     rfstream(const char* dir) { file = fopen(dir, "r"); }
 };
@@ -297,14 +297,14 @@ class wstream : public interface::wstream {
         memcpy(buf + use, s + _len - N, N), p = buf + N + use;
     }
 
-protected:
+  protected:
     FILE* file = stdout;
 
-public:
+  public:
     ~wstream() { vflush(), fclose(file); }
 };
 class wfstream : public wstream {
-public:
+  public:
     wfstream(FILE* f) { file = f; }
     wfstream(const char* dir) { file = fopen(dir, "w"); }
 };
@@ -338,7 +338,7 @@ class sstream : public interface::rstream, public interface::wstream {
         memcpy(p, s, N), p += N, uneof();
     }
 
-public:
+  public:
     sstream() { clear(); }
     sstream(const char* s) { str(s); }
     ~sstream() { delete[] l; }

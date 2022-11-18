@@ -46,13 +46,16 @@ class rstream {
     char buf[SIZ], *p = buf, *q = buf, prech;
     FILE* file = stdin;
     bool isnum(char ch) {
-        return isdigit(ch) && ch < 48 + base || isupper(ch) && ch < 55 + base || islower(ch) && ch < 87 + base;
+        return isdigit(ch) && ch < 48 + base || isupper(ch) && ch < 55 + base
+            || islower(ch) && ch < 87 + base;
     }
     bool iseof(char ch) { return !~ch; }
     int tonum(char ch) { return ch - (isdigit(ch) ? 48 : isupper(ch) ? 55 : 87); }
-    char fget() { return p == q && (q = (p = buf) + fread(buf, 1, SIZ, file), p == q) ? EOF : *p++; }
+    char fget() {
+        return p == q && (q = (p = buf) + fread(buf, 1, SIZ, file), p == q) ? EOF : *p++;
+    }
 
-public:
+  public:
     rstream() {}
     rstream(const char* dir) : file(fopen(dir, "r")) {}
     char get() {
@@ -124,7 +127,8 @@ public:
         if (eof) return (eofx = 1), *this;
         int t = 0, f = 0;
         char ch;
-        while (!iseof(ch = get()) && ch != delim && !(f = delim == '\n' && ch == '\r')) t < N - 1 && (s[t++] = ch);
+        while (!iseof(ch = get()) && ch != delim && !(f = delim == '\n' && ch == '\r'))
+            t < N - 1 && (s[t++] = ch);
         s[t] = '\0', f && get();
         return *this;
     }
@@ -160,7 +164,7 @@ class wstream {
         memset(buf + use, setfill, len), p = buf + len + use;
     }
 
-public:
+  public:
     wstream() {}
     wstream(const char* dir) : file(fopen(dir, "w")) {}
     ~wstream() { flush(); }
