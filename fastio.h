@@ -45,7 +45,20 @@ namespace interface {
     concept signed_integer_t = std::signed_integral<T> || std::same_as<T, __int128_t>;
     template <typename T>
     concept float_t = std::floating_point<T>;
-    class rstream {
+    template <typename T>
+    concept string_t = std::same_as<T, char*> || std::same_as<T, const char*>;
+    template <typename T>
+    concept notstring_t = (!string_t<T>);
+    class noncopyable {
+      private:
+        noncopyable(const noncopyable&) = delete;
+        void operator=(const noncopyable&) = delete;
+
+      protected:
+        noncopyable() = default;
+        ~noncopyable() = default;
+    };
+    class rstream : public noncopyable {
         int base = 10;
         bool pre;
         char prech;
@@ -139,12 +152,16 @@ namespace interface {
         }
         rstream& seek() { return vseek(), *this; }
         rstream& read(auto... args) { return (*this >> ... >> args); }
-        template <typename T> const T read() {
+        template <notstring_t T> const T read() {
             T x;
             return *this >> x, x;
         }
+        template <string_t T> char* read(int N) {
+            char* s = new char[N]{};
+            return *this >> s, s;
+        }
     };
-    class wstream {
+    class wstream : public noncopyable {
         int setw = 0, precision = 6, base = 10;
         bool boolalpha = 0, showpos = 0, showpoint = 0, showbase = 0, kase = 0, unitbuf = 0;
         char setfill = ' ';

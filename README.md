@@ -55,9 +55,13 @@ README.md          # README
 
     读取一个 `T` 类型的数据到 x
 
+-   `x = rs.read<char*>(n);` `x = rs.read<const char*>(n);`
+
+    读取一个最长为 n 的字符串到 s，**s 只能为字符指针，不能为数组**
+
 -   `rs >> s;`
 
-    读取一个字符串 s，**s 只能为数组 `char[]`，不能为指针 `char*`**
+    读取一个字符串 s，**s 只能为字符数组，不能为指针**
 
 -   `rs.getline(s, n);`
 
@@ -339,7 +343,20 @@ namespace interface {
     concept signed_integer_t = std::signed_integral<T> || std::same_as<T, __int128_t>;
     template <typename T>
     concept float_t = std::floating_point<T>;
-    class rstream {
+    template <typename T>
+    concept string_t = std::same_as<T, char*> || std::same_as<T, const char*>;
+    template <typename T>
+    concept notstring_t = (!string_t<T>);
+    class noncopyable {
+      private:
+        noncopyable(const noncopyable&) = delete;
+        void operator=(const noncopyable&) = delete;
+
+      protected:
+        noncopyable() = default;
+        ~noncopyable() = default;
+    };
+    class rstream : public noncopyable {
         int base = 10;
         bool pre;
         char prech;
@@ -350,11 +367,11 @@ namespace interface {
         bool iseof(char ch) { return !~ch; }
         int tonum(char ch) { return ch - (isdigit(ch) ? '0' : isupper(ch) ? 'A' - 10 : 'a' - 10); }
 
-    protected:
+      protected:
         virtual char vget() = 0;
         virtual void vseek() = 0;
 
-    public:
+      public:
         bool eof = 0, fail = 0;
         rstream() = default;
         char get() {
@@ -389,7 +406,7 @@ namespace interface {
             if (eof) fail = 1, ch = 0;
             return *this;
         }
-        template <int N> rstream& operator>>(char (&s)[N]) {
+        template <size_t N> rstream& operator>>(char (&s)[N]) {
             int t = 0;
             char ch;
             while (!iseof(ch = get()) && isspace(ch))
@@ -433,12 +450,16 @@ namespace interface {
         }
         rstream& seek() { return vseek(), *this; }
         rstream& read(auto... args) { return (*this >> ... >> args); }
-        template <typename T> const T read() {
+        template <notstring_t T> const T read() {
             T x;
             return *this >> x, x;
         }
+        template <string_t T> char* read(int N) {
+            char* s = new char[N]{};
+            return *this >> s, s;
+        }
     };
-    class wstream {
+    class wstream : public noncopyable {
         int setw = 0, precision = 6, base = 10;
         bool boolalpha = 0, showpos = 0, showpoint = 0, showbase = 0, kase = 0, unitbuf = 0;
         char setfill = ' ';
@@ -452,13 +473,13 @@ namespace interface {
         char tochr(int x) { return x + (x < 10 ? '0' : kase ? 'A' - 10 : 'a' - 10); }
         void fill(int N) { setw = 0, vfill(setfill, N); }
 
-    protected:
+      protected:
         virtual void vflush() = 0;
         virtual void vfill(char, int) = 0;
         virtual void vput(char) = 0;
         virtual void vputs(const char*, int = -1) = 0;
 
-    public:
+      public:
         wstream() = default;
         wstream& flush() { return vflush(), *this; }
         wstream& put(char ch) { return vput(ch), *this; }
@@ -557,14 +578,14 @@ class rstream : public interface::rstream {
     }
     void vseek() { fseek(file, 0, 0), p = q = buf; }
 
-protected:
+  protected:
     FILE* file = stdin;
 
-public:
+  public:
     ~rstream() { fclose(file); }
 };
 class rfstream : public rstream {
-public:
+  public:
     rfstream(FILE* f) { file = f; }
     rfstream(const char* dir) { file = fopen(dir, "r"); }
 };
@@ -591,14 +612,14 @@ class wstream : public interface::wstream {
         memcpy(buf + use, s + _len - N, N), p = buf + N + use;
     }
 
-protected:
+  protected:
     FILE* file = stdout;
 
-public:
+  public:
     ~wstream() { vflush(), fclose(file); }
 };
 class wfstream : public wstream {
-public:
+  public:
     wfstream(FILE* f) { file = f; }
     wfstream(const char* dir) { file = fopen(dir, "w"); }
 };
@@ -632,7 +653,7 @@ class sstream : public interface::rstream, public interface::wstream {
         memcpy(p, s, N), p += N, uneof();
     }
 
-public:
+  public:
     sstream() { clear(); }
     sstream(const char* s) { str(s); }
     ~sstream() { delete[] l; }
