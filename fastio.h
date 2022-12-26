@@ -68,6 +68,15 @@ namespace interface {
         }
         bool iseof(char ch) { return !~ch; }
         int tonum(char ch) { return ch - (isdigit(ch) ? '0' : isupper(ch) ? 'A' - 10 : 'a' - 10); }
+        void reads(char* s, int N) {
+            int t = 0;
+            char ch;
+            while (!iseof(ch = get()) && isspace(ch))
+                ;
+            if (eof) return (void)(fail = 1);
+            while (isgraph(ch)) t < N - 1 && (s[t++] = ch), ch = get();
+            s[t] = '\0', pre = 1;
+        }
 
       protected:
         virtual char vget() = 0;
@@ -108,16 +117,7 @@ namespace interface {
             if (eof) fail = 1, ch = 0;
             return *this;
         }
-        template <int N> rstream& operator>>(char (&s)[N]) {
-            int t = 0;
-            char ch;
-            while (!iseof(ch = get()) && isspace(ch))
-                ;
-            if (eof) return fail = 1, *this;
-            while (isgraph(ch)) t < N - 1 && (s[t++] = ch), ch = get();
-            s[t] = '\0', pre = 1;
-            return *this;
-        }
+        template <int N> rstream& operator>>(char (&s)[N]) { return reads(s, N), *this; }
         rstream& operator>>(bool& f) {
             long long x;
             return *this >> x, f = x, *this;
@@ -158,7 +158,7 @@ namespace interface {
         }
         template <string_t T> char* read(int N) {
             char* s = new char[N]{};
-            return *this >> s, s;
+            return reads(s, N), s;
         }
     };
     class wstream : public noncopyable {
