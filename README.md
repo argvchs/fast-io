@@ -275,7 +275,7 @@ README.md          # README
     }
 
     // overload std::vector<T> read/write
-    template<class T> auto& operator<<(fastio::interface::rstream& rs, const vector<T> v) {
+    template<class T> auto& operator<<(fastio::interface::rstream& rs, const vector<T>& v) {
         v.clear();
         size_t n = rs.read<size_t>();
         for (T x; n--;) {
