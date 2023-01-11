@@ -1,4 +1,5 @@
 #include <cctype>
+#include <climits>
 #include <cmath>
 #include <concepts>
 #include <cstdio>
